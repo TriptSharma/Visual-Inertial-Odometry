@@ -3,7 +3,6 @@ import numpy as np
 from utils import Isometry3d, to_rotation
 
 
-
 class Feature(object):
     # id for next feature
     next_id = 0
@@ -18,7 +17,7 @@ class Feature(object):
 
         # Store the observations of the features in the
         # state_id(key)-image_coordinates(value) manner.
-        self.observations = dict()   # <StateID, vector4d>
+        self.observations = dict()  # <StateID, vector4d>
 
         # 3d postion of the feature in the world frame.
         self.position = np.zeros(3)
@@ -51,7 +50,7 @@ class Feature(object):
         z_hat = h[:2] / h[2]
 
         # Compute the residual.
-        e = ((z_hat - z)**2).sum()
+        e = ((z_hat - z) ** 2).sum()
         return e
 
     def jacobian(self, T_c0_ci, x, z):
@@ -80,11 +79,11 @@ class Feature(object):
         W[:, 2] = T_c0_ci.t
 
         J = np.zeros((2, 3))
-        J[0] = W[0]/h3 - W[2]*h1/(h3*h3)
-        J[1] = W[1]/h3 - W[2]*h2/(h3*h3)
+        J[0] = W[0] / h3 - W[2] * h1 / (h3 * h3)
+        J[1] = W[1] / h3 - W[2] * h2 / (h3 * h3)
 
         # Compute the residual.
-        z_hat = np.array([h1/h3, h2/h3])
+        z_hat = np.array([h1 / h3, h2 / h3])
         r = z_hat - z
 
         # Compute the weight based on the residual.
@@ -92,7 +91,7 @@ class Feature(object):
         if e <= self.optimization_config.huber_epsilon:
             w = 1.0
         else:
-            w = self.optimization_config.huber_epsilon / (2*e)
+            w = self.optimization_config.huber_epsilon / (2 * e)
 
         return J, r, w
 
@@ -112,12 +111,12 @@ class Feature(object):
         """
         # Construct a least square problem to solve the depth.
         m = T_c1_c2.R @ np.array([*z1, 1.0])
-        a = m[:2] - z2*m[2]                   # vec2
-        b = z2*T_c1_c2.t[2] - T_c1_c2.t[:2]   # vec2
+        a = m[:2] - z2 * m[2]  # vec2
+        b = z2 * T_c1_c2.t[2] - T_c1_c2.t[:2]  # vec2
 
         # Solve for the depth.
         depth = a @ b / (a @ a)
-        
+
         p = np.array([*z1, 1.0]) * depth
         return p
 
@@ -161,8 +160,8 @@ class Feature(object):
         parallel = translation @ feature_direction
         orthogonal_translation = translation - parallel * feature_direction
 
-        return (np.linalg.norm(orthogonal_translation) > 
-            self.optimization_config.translation_threshold)
+        return (np.linalg.norm(orthogonal_translation) >
+                self.optimization_config.translation_threshold)
 
     def initialize_position(self, cam_states):
         """
@@ -179,7 +178,7 @@ class Feature(object):
         Returns:
             True if the estimated 3d position of the feature is valid. (bool)
         """
-        cam_poses = []     # [Isometry3d]
+        cam_poses = []  # [Isometry3d]
         measurements = []  # [vec2]
 
         T_cam1_cam0 = Isometry3d(
@@ -190,7 +189,7 @@ class Feature(object):
                 cam_state = cam_states[cam_id]
             except KeyError:
                 continue
-            
+
             # Add measurements.
             measurements.append(m[:2])
             measurements.append(m[2:])
@@ -231,10 +230,10 @@ class Feature(object):
             total_cost += self.cost(cam_pose, solution, measurement)
 
         # Outer loop.
-        while (outer_loop_count < 
-            self.optimization_config.outer_loop_max_iteration
-            and delta_norm > 
-            self.optimization_config.estimation_precision):
+        while (outer_loop_count <
+               self.optimization_config.outer_loop_max_iteration
+               and delta_norm >
+               self.optimization_config.estimation_precision):
 
             A = np.zeros((3, 3))
             b = np.zeros(3)
@@ -249,11 +248,11 @@ class Feature(object):
 
             # Inner loop.
             # Solve for the delta that can reduce the total cost.
-            while (inner_loop_count < 
-                self.optimization_config.inner_loop_max_iteration
-                and not is_cost_reduced):
+            while (inner_loop_count <
+                   self.optimization_config.inner_loop_max_iteration
+                   and not is_cost_reduced):
 
-                delta = np.linalg.solve(A + lambd * np.identity(3), b)   # vec3
+                delta = np.linalg.solve(A + lambd * np.identity(3), b)  # vec3
                 new_solution = solution - delta
                 delta_norm = np.linalg.norm(delta)
 
@@ -266,11 +265,11 @@ class Feature(object):
                     is_cost_reduced = True
                     solution = new_solution
                     total_cost = new_cost
-                    lambd = max(lambd/10., 1e-10)
+                    lambd = max(lambd / 10., 1e-10)
                 else:
                     is_cost_reduced = False
-                    lambd = min(lambd*10., 1e12)
-                
+                    lambd = min(lambd * 10., 1e12)
+
                 inner_loop_count += 1
             inner_loop_count = 0
             outer_loop_count += 1

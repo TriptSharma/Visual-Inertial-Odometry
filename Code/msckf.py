@@ -8,7 +8,6 @@ import time
 from collections import namedtuple
 
 
-
 class IMUState(object):
     # id for next IMU state
     next_id = 0
@@ -81,20 +80,20 @@ class CAMState(object):
         self.orientation_null = np.array([0., 0., 0., 1.])
         self.position_null = np.zeros(3)
 
-        
+
 class StateServer(object):
     """
     Store one IMU states and several camera states for constructing 
     measurement model.
     """
+
     def __init__(self):
         self.imu_state = IMUState()
-        self.cam_states = dict()   # <CAMStateID, CAMState>, ordered dict
+        self.cam_states = dict()  # <CAMStateID, CAMState>, ordered dict
 
         # State covariance matrix
         self.state_cov = np.zeros((21, 21))
         self.continuous_noise_cov = np.zeros((12, 12))
-
 
 
 class MSCKF(object):
@@ -110,7 +109,7 @@ class MSCKF(object):
         # State vector
         self.state_server = StateServer()
         # Features used
-        self.map_server = dict()   # <FeatureID, Feature>
+        self.map_server = dict()  # <FeatureID, Feature>
 
         # Chi squared test table.
         # Initialize the chi squared test table with confidence level 0.95.
@@ -241,7 +240,7 @@ class MSCKF(object):
 
         # Find the gravity in the IMU frame.
         ...
-        
+
         # Normalize the gravity and save to IMUState          
         ...
 
@@ -263,10 +262,10 @@ class MSCKF(object):
         # Update the state info
         # Repeat until the time_bound is reached
         ...
-        
+
         # Set the current imu id to be the IMUState.next_id
         ...
-        
+
         # IMUState.next_id increments
         ...
 
@@ -285,7 +284,7 @@ class MSCKF(object):
 
         # Compute discrete transition F, Q matrices in Appendix A in "MSCKF" paper
         ...
-        
+
         # Approximate matrix exponential to the 3rd order, which can be 
         # considered to be accurate enough assuming dt is within 0.01s.
         ...
@@ -301,10 +300,9 @@ class MSCKF(object):
 
         # Fix the covariance to be symmetric
         ...
-        
+
         # Update the state correspondes to null space.
         ...
-        
 
     def predict_new_state(self, dt, gyro, acc):
         """
@@ -313,26 +311,26 @@ class MSCKF(object):
         """Propogate the state using 4th order Runge-Kutta for equstion (1) in "MSCKF" paper"""
         # compute norm of gyro
         ...
-        
+
         # Get the Omega matrix, the equation above equation (2) in "MSCKF" paper
         ...
-        
+
         # Get the orientation, velocity, position
         ...
-        
+
         # Compute the dq_dt, dq_dt2 in equation (1) in "MSCKF" paper
         ...
-        
+
         # Apply 4th order Runge-Kutta 
         # k1 = f(tn, yn)
         ...
 
         # k2 = f(tn+dt/2, yn+k1*dt/2)
         ...
-        
+
         # k3 = f(tn+dt/2, yn+k2*dt/2)
         ...
-        
+
         # k4 = f(tn+dt, yn+k3*dt)
         ...
 
@@ -342,7 +340,6 @@ class MSCKF(object):
         # update the imu state
         ...
 
-    
     def state_augmentation(self, time):
         """
         IMPLEMENT THIS!!!!!
@@ -355,7 +352,6 @@ class MSCKF(object):
 
         # Add a new camera state to the state server.
         ...
-        
 
         # Update the covariance matrix of the state.
         # To simplify computation, the matrix J below is the nontrivial block
@@ -377,7 +373,7 @@ class MSCKF(object):
         """
         # get the current imu state id and number of current features
         ...
-        
+
         # add all features in the feature_msg to self.map_server
         ...
 
@@ -435,11 +431,11 @@ class MSCKF(object):
         dpc0_dpg = R_w_c0
         dpc1_dpg = R_w_c1
 
-        H_x = dz_dpc0 @ dpc0_dxc + dz_dpc1 @ dpc1_dxc   # shape: (4, 6)
-        H_f = dz_dpc0 @ dpc0_dpg + dz_dpc1 @ dpc1_dpg   # shape: (4, 3)
+        H_x = dz_dpc0 @ dpc0_dxc + dz_dpc1 @ dpc1_dxc  # shape: (4, 6)
+        H_f = dz_dpc0 @ dpc0_dpg + dz_dpc1 @ dpc1_dpg  # shape: (4, 3)
 
         # Modifty the measurement Jacobian to ensure observability constrain.
-        A = H_x   # shape: (4, 6)
+        A = H_x  # shape: (4, 6)
         u = np.zeros(6)
         u[:3] = to_rotation(cam_state.orientation_null) @ IMUState.gravity
         u[3:] = skew(p_w - cam_state.position_null) @ IMUState.gravity
@@ -448,7 +444,7 @@ class MSCKF(object):
         H_f = -H_x[:4, 3:6]
 
         # Compute the residual.
-        r = z - np.array([*p_c0[:2]/p_c0[2], *p_c1[:2]/p_c1[2]])
+        r = z - np.array([*p_c0[:2] / p_c0[2], *p_c1[:2] / p_c1[2]])
 
         # H_x: shape (4, 6)
         # H_f: shape (4, 3)
@@ -472,8 +468,8 @@ class MSCKF(object):
         jacobian_row_size = 4 * len(valid_cam_state_ids)
 
         cam_states = self.state_server.cam_states
-        H_xj = np.zeros((jacobian_row_size, 
-            21+len(self.state_server.cam_states)*6))
+        H_xj = np.zeros((jacobian_row_size,
+                         21 + len(self.state_server.cam_states) * 6))
         H_fj = np.zeros((jacobian_row_size, 3))
         r_j = np.zeros(jacobian_row_size)
 
@@ -483,9 +479,9 @@ class MSCKF(object):
 
             # Stack the Jacobians.
             idx = list(self.state_server.cam_states.keys()).index(cam_id)
-            H_xj[stack_count:stack_count+4, 21+6*idx:21+6*(idx+1)] = H_xi
-            H_fj[stack_count:stack_count+4, :3] = H_fi
-            r_j[stack_count:stack_count+4] = r_i
+            H_xj[stack_count:stack_count + 4, 21 + 6 * idx:21 + 6 * (idx + 1)] = H_xi
+            H_fj[stack_count:stack_count + 4, :3] = H_fi
+            r_j[stack_count:stack_count + 4] = r_i
             stack_count += 4
 
         # Project the residual and Jacobians onto the nullspace of H_fj.
@@ -517,7 +513,7 @@ class MSCKF(object):
 
         # Compute the error of the state.
         ...
-        
+
         # Update the IMU state.
         ...
 
@@ -533,9 +529,9 @@ class MSCKF(object):
     def gating_test(self, H, r, dof):
         P1 = H @ self.state_server.state_cov @ H.T
         P2 = self.config.observation_noise * np.identity(len(H))
-        gamma = r @ np.linalg.solve(P1+P2, r)
+        gamma = r @ np.linalg.solve(P1 + P2, r)
 
-        if(gamma < self.chi_squared_test_table[dof]):
+        if (gamma < self.chi_squared_test_table[dof]):
             return True
         else:
             return False
@@ -580,8 +576,8 @@ class MSCKF(object):
         if len(processed_feature_ids) == 0:
             return
 
-        H_x = np.zeros((jacobian_row_size, 
-            21+6*len(self.state_server.cam_states)))
+        H_x = np.zeros((jacobian_row_size,
+                        21 + 6 * len(self.state_server.cam_states)))
         r = np.zeros(jacobian_row_size)
         stack_count = 0
 
@@ -595,9 +591,9 @@ class MSCKF(object):
 
             H_xj, r_j = self.feature_jacobian(feature.id, cam_state_ids)
 
-            if self.gating_test(H_xj, r_j, len(cam_state_ids)-1):
-                H_x[stack_count:stack_count+H_xj.shape[0], :H_xj.shape[1]] = H_xj
-                r[stack_count:stack_count+len(r_j)] = r_j
+            if self.gating_test(H_xj, r_j, len(cam_state_ids) - 1):
+                H_x[stack_count:stack_count + H_xj.shape[0], :H_xj.shape[1]] = H_xj
+                r[stack_count:stack_count + len(r_j)] = r_j
                 stack_count += H_xj.shape[0]
 
             # Put an upper bound on the row size of measurement Jacobian,
@@ -636,7 +632,7 @@ class MSCKF(object):
             position = cam_state_pairs[cam_state_idx][1].position
             rotation = to_rotation(
                 cam_state_pairs[cam_state_idx][1].orientation)
-            
+
             distance = np.linalg.norm(position - key_position)
             angle = 2 * np.arccos(to_quaternion(
                 rotation @ key_rotation.T)[-1])
@@ -652,7 +648,6 @@ class MSCKF(object):
         # Sort the elements in the output list.
         rm_cam_state_ids = sorted(rm_cam_state_ids)
         return rm_cam_state_ids
-
 
     def prune_cam_state_buffer(self):
         if len(self.state_server.cam_states) < self.config.max_cam_state_size:
@@ -693,10 +688,10 @@ class MSCKF(object):
                         del feature.observations[cam_id]
                     continue
 
-            jacobian_row_size += 4*len(involved_cam_state_ids) - 3
+            jacobian_row_size += 4 * len(involved_cam_state_ids) - 3
 
         # Compute the Jacobian and residual.
-        H_x = np.zeros((jacobian_row_size, 21+6*len(self.state_server.cam_states)))
+        H_x = np.zeros((jacobian_row_size, 21 + 6 * len(self.state_server.cam_states)))
         r = np.zeros(jacobian_row_size)
 
         stack_count = 0
@@ -714,8 +709,8 @@ class MSCKF(object):
             H_xj, r_j = self.feature_jacobian(feature.id, involved_cam_state_ids)
 
             if self.gating_test(H_xj, r_j, len(involved_cam_state_ids)):
-                H_x[stack_count:stack_count+H_xj.shape[0], :H_xj.shape[1]] = H_xj
-                r[stack_count:stack_count+len(r_j)] = r_j
+                H_x[stack_count:stack_count + H_xj.shape[0], :H_xj.shape[1]] = H_xj
+                r[stack_count:stack_count + len(r_j)] = r_j
                 stack_count += H_xj.shape[0]
 
             for cam_id in involved_cam_state_ids:
@@ -729,7 +724,7 @@ class MSCKF(object):
 
         for cam_id in rm_cam_state_ids:
             idx = list(self.state_server.cam_states.keys()).index(cam_id)
-            cam_state_start = 21 + 6*idx
+            cam_state_start = 21 + 6 * idx
             cam_state_end = cam_state_start + 6
 
             # Remove the corresponding rows and columns in the state
@@ -749,9 +744,9 @@ class MSCKF(object):
         Reset the state covariance.
         """
         state_cov = np.zeros((21, 21))
-        state_cov[ 3: 6,  3: 6] = self.config.gyro_bias_cov * np.identity(3)
-        state_cov[ 6: 9,  6: 9] = self.config.velocity_cov * np.identity(3)
-        state_cov[ 9:12,  9:12] = self.config.acc_bias_cov * np.identity(3)
+        state_cov[3: 6, 3: 6] = self.config.gyro_bias_cov * np.identity(3)
+        state_cov[6: 9, 6: 9] = self.config.velocity_cov * np.identity(3)
+        state_cov[9:12, 9:12] = self.config.acc_bias_cov * np.identity(3)
         state_cov[15:18, 15:18] = self.config.extrinsic_rotation_cov * np.identity(3)
         state_cov[18:21, 18:21] = self.config.extrinsic_translation_cov * np.identity(3)
         self.state_server.state_cov = state_cov
@@ -797,8 +792,8 @@ class MSCKF(object):
         position_y_std = np.sqrt(self.state_server.state_cov[13, 13])
         position_z_std = np.sqrt(self.state_server.state_cov[14, 14])
 
-        if max(position_x_std, position_y_std, position_z_std 
-            ) < self.config.position_std_threshold:
+        if max(position_x_std, position_y_std, position_z_std
+               ) < self.config.position_std_threshold:
             return
 
         print('Start online reset...')
@@ -820,7 +815,7 @@ class MSCKF(object):
         print('   position:', imu_state.position)
         print('   velocity:', imu_state.velocity)
         print()
-        
+
         T_i_w = Isometry3d(
             to_rotation(imu_state.orientation).T,
             imu_state.position)

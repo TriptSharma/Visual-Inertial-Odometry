@@ -8,10 +8,9 @@ from collections import defaultdict, namedtuple
 from threading import Thread
 
 
-
 class GroundTruthReader(object):
     def __init__(self, path, scaler, starttime=-float('inf')):
-        self.scaler = scaler   # convert timestamp from ns to second
+        self.scaler = scaler  # convert timestamp from ns to second
         self.path = path
         self.starttime = starttime
         self.field = namedtuple('gt_msg', ['p', 'q', 'v', 'bw', 'ba'])
@@ -47,14 +46,13 @@ class GroundTruthReader(object):
                 yield data
 
 
-
 class IMUDataReader(object):
     def __init__(self, path, scaler, starttime=-float('inf')):
         self.scaler = scaler
         self.path = path
         self.starttime = starttime
-        self.field = namedtuple('imu_msg', 
-            ['timestamp', 'angular_velocity', 'linear_acceleration'])
+        self.field = namedtuple('imu_msg',
+                                ['timestamp', 'angular_velocity', 'linear_acceleration'])
 
     def parse(self, line):
         """
@@ -89,7 +87,6 @@ class IMUDataReader(object):
         self.starttime = starttime
 
 
-
 class ImageReader(object):
     def __init__(self, ids, timestamps, starttime=-float('inf')):
         self.ids = ids
@@ -100,15 +97,15 @@ class ImageReader(object):
 
         self.field = namedtuple('img_msg', ['timestamp', 'image'])
 
-        self.ahead = 10   # 10 images ahead of current index
-        self.wait = 1.5   # waiting time
+        self.ahead = 10  # 10 images ahead of current index
+        self.wait = 1.5  # waiting time
 
         self.preload_thread = Thread(target=self.preload)
         self.thread_started = False
 
     def read(self, path):
         return cv2.imread(path, -1)
-        
+
     def preload(self):
         idx = self.idx
         t = float('inf')
@@ -118,7 +115,7 @@ class ImageReader(object):
             if self.idx == idx:
                 time.sleep(1e-2)
                 continue
-            
+
             for i in range(self.idx, self.idx + self.ahead):
                 if self.timestamps[i] < self.starttime:
                     continue
@@ -128,7 +125,7 @@ class ImageReader(object):
                 return
             idx = self.idx
             t = time.time()
-    
+
     def __len__(self):
         return len(self.ids)
 
@@ -141,7 +138,7 @@ class ImageReader(object):
         if idx in self.cache:
             img = self.cache[idx]
             del self.cache[idx]
-        else:   
+        else:
             img = self.read(self.ids[idx])
         return img
 
@@ -158,7 +155,6 @@ class ImageReader(object):
         self.starttime = starttime
 
 
-
 class Stereo(object):
     def __init__(self, cam0, cam1):
         assert len(cam0) == len(cam1)
@@ -166,8 +162,8 @@ class Stereo(object):
         self.cam1 = cam1
         self.timestamps = cam0.timestamps
 
-        self.field = namedtuple('stereo_msg', 
-            ['timestamp', 'cam0_image', 'cam1_image', 'cam0_msg', 'cam1_msg'])
+        self.field = namedtuple('stereo_msg',
+                                ['timestamp', 'cam0_image', 'cam1_image', 'cam0_msg', 'cam1_msg'])
 
     def __iter__(self):
         for l, r in zip(self.cam0, self.cam1):
@@ -184,13 +180,13 @@ class Stereo(object):
         self.starttime = starttime
         self.cam0.set_starttime(starttime)
         self.cam1.set_starttime(starttime)
-        
-    
 
-class EuRoCDataset(object):   # Stereo + IMU
+
+class EuRoCDataset(object):  # Stereo + IMU
     '''
     path example: 'path/to/your/EuRoC Mav Dataset/MH_01_easy'
     '''
+
     def __init__(self, path):
         self.groundtruth = GroundTruthReader(os.path.join(
             path, 'mav0', 'state_groundtruth_estimate0', 'data.csv'), 1e-9)
@@ -216,15 +212,14 @@ class EuRoCDataset(object):   # Stereo + IMU
 
     def list_imgs(self, dir):
         xs = [_ for _ in os.listdir(dir) if _.endswith('.png')]
-        xs = sorted(xs, key=lambda x:float(x[:-4]))
+        xs = sorted(xs, key=lambda x: float(x[:-4]))
         timestamps = [float(_[:-4]) * 1e-9 for _ in xs]
         return [os.path.join(dir, _) for _ in xs], timestamps
 
 
-
 # simulate the online environment
 class DataPublisher(object):
-    def __init__(self, dataset, out_queue, duration=float('inf'), ratio=1.): 
+    def __init__(self, dataset, out_queue, duration=float('inf'), ratio=1.):
         self.dataset = dataset
         self.dataset_starttime = dataset.starttime
         self.out_queue = out_queue
@@ -235,7 +230,7 @@ class DataPublisher(object):
         self.stopped = False
 
         self.publish_thread = Thread(target=self.publish)
-        
+
     def start(self, starttime):
         self.started = True
         self.starttime = starttime
@@ -260,7 +255,7 @@ class DataPublisher(object):
             if interval < 0:
                 continue
             while (time.time() - self.starttime) * self.ratio < interval + 1e-3:
-                time.sleep(1e-3)   # assumption: data frequency < 1000hz
+                time.sleep(1e-3)  # assumption: data frequency < 1000hz
                 if self.stopped:
                     return
 
@@ -269,7 +264,6 @@ class DataPublisher(object):
             else:
                 self.out_queue.put(None)
                 return
-
 
 
 if __name__ == '__main__':
@@ -294,6 +288,8 @@ if __name__ == '__main__':
     now = time.time()
     imu_publisher.start(now)
     img_publisher.start(now)
+
+
     # gt_publisher.start(now)
 
     def print_msg(in_queue, source):
@@ -302,6 +298,8 @@ if __name__ == '__main__':
             if x is None:
                 return
             print(x.timestamp, source)
+
+
     t2 = Thread(target=print_msg, args=(imu_queue, 'imu'))
     t3 = Thread(target=print_msg, args=(gt_queue, 'groundtruth'))
     t2.start()
@@ -325,5 +323,5 @@ if __name__ == '__main__':
 
     print(f'\nelapsed time: {time.time() - now}s')
     print(f'dataset time interval: {timestamps[-1]} -> {timestamps[0]}'
-        f'  ({timestamps[-1]-timestamps[0]}s)\n')
+          f'  ({timestamps[-1] - timestamps[0]}s)\n')
     print('Please check if IMU and image are synced')

@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 # quaternion representation: [x, y, z, w]
 # JPL convention
 
@@ -16,6 +15,7 @@ def skew(vec):
         [z, 0, -x],
         [-y, x, 0]])
 
+
 def to_rotation(q):
     """
     Convert a quaternion to the corresponding rotation matrix.
@@ -28,8 +28,9 @@ def to_rotation(q):
     vec = q[:3]
     w = q[3]
 
-    R = (2*w*w-1)*np.identity(3) - 2*w*skew(vec) + 2*vec[:, None]*vec
+    R = (2 * w * w - 1) * np.identity(3) - 2 * w * skew(vec) + 2 * vec[:, None] * vec
     return R
+
 
 def to_quaternion(R):
     """
@@ -41,21 +42,22 @@ def to_quaternion(R):
     """
     if R[2, 2] < 0:
         if R[0, 0] > R[1, 1]:
-            t = 1 + R[0,0] - R[1,1] - R[2,2]
-            q = [t, R[0, 1]+R[1, 0], R[2, 0]+R[0, 2], R[1, 2]-R[2, 1]]
+            t = 1 + R[0, 0] - R[1, 1] - R[2, 2]
+            q = [t, R[0, 1] + R[1, 0], R[2, 0] + R[0, 2], R[1, 2] - R[2, 1]]
         else:
-            t = 1 - R[0,0] + R[1,1] - R[2,2]
-            q = [R[0, 1]+R[1, 0], t, R[2, 1]+R[1, 2], R[2, 0]-R[0, 2]]
+            t = 1 - R[0, 0] + R[1, 1] - R[2, 2]
+            q = [R[0, 1] + R[1, 0], t, R[2, 1] + R[1, 2], R[2, 0] - R[0, 2]]
     else:
         if R[0, 0] < -R[1, 1]:
-            t = 1 - R[0,0] - R[1,1] + R[2,2]
-            q = [R[0, 2]+R[2, 0], R[2, 1]+R[1, 2], t, R[0, 1]-R[1, 0]]
+            t = 1 - R[0, 0] - R[1, 1] + R[2, 2]
+            q = [R[0, 2] + R[2, 0], R[2, 1] + R[1, 2], t, R[0, 1] - R[1, 0]]
         else:
-            t = 1 + R[0,0] + R[1,1] + R[2,2]
-            q = [R[1, 2]-R[2, 1], R[2, 0]-R[0, 2], R[0, 1]-R[1, 0], t]
+            t = 1 + R[0, 0] + R[1, 1] + R[2, 2]
+            q = [R[1, 2] - R[2, 1], R[2, 0] - R[0, 2], R[0, 1] - R[1, 0], t]
 
-    q = np.array(q) # * 0.5 / np.sqrt(t)
+    q = np.array(q)  # * 0.5 / np.sqrt(t)
     return q / np.linalg.norm(q)
+
 
 def quaternion_normalize(q):
     """
@@ -63,11 +65,13 @@ def quaternion_normalize(q):
     """
     return q / np.linalg.norm(q)
 
+
 def quaternion_conjugate(q):
     """
     Conjugate of a quaternion.
     """
     return np.array([*-q[:3], q[3]])
+
 
 def quaternion_multiplication(q1, q2):
     """
@@ -77,9 +81,9 @@ def quaternion_multiplication(q1, q2):
     q2 = q2 / np.linalg.norm(q2)
 
     L = np.array([
-        [ q1[3],  q1[2], -q1[1], q1[0]],
-        [-q1[2],  q1[3],  q1[0], q1[1]],
-        [ q1[1], -q1[0],  q1[3], q1[2]],
+        [q1[3], q1[2], -q1[1], q1[0]],
+        [-q1[2], q1[3], q1[0], q1[1]],
+        [q1[1], -q1[0], q1[3], q1[2]],
         [-q1[0], -q1[1], -q1[2], q1[3]]
     ])
 
@@ -99,10 +103,10 @@ def small_angle_quaternion(dtheta):
     dq_square_norm = dq @ dq
 
     if dq_square_norm <= 1:
-        q = np.array([*dq, np.sqrt(1-dq_square_norm)])
+        q = np.array([*dq, np.sqrt(1 - dq_square_norm)])
     else:
         q = np.array([*dq, 1.])
-        q /= np.sqrt(1+dq_square_norm)
+        q /= np.sqrt(1 + dq_square_norm)
     return q
 
 
@@ -116,28 +120,28 @@ def from_two_vectors(v0, v1):
 
     # if dot == -1, vectors are nearly opposite
     if d < -0.999999:
-        axis = np.cross([1,0,0], v0)
+        axis = np.cross([1, 0, 0], v0)
         if np.linalg.norm(axis) < 0.000001:
-            axis = np.cross([0,1,0], v0)
+            axis = np.cross([0, 1, 0], v0)
         q = np.array([*axis, 0.])
     elif d > 0.999999:
         q = np.array([0., 0., 0., 1.])
     else:
-        s = np.sqrt((1+d)*2)
+        s = np.sqrt((1 + d) * 2)
         axis = np.cross(v0, v1)
         vec = axis / s
         w = 0.5 * s
         q = np.array([*vec, w])
-        
-    q = q / np.linalg.norm(q)
-    return quaternion_conjugate(q)   # hamilton -> JPL
 
+    q = q / np.linalg.norm(q)
+    return quaternion_conjugate(q)  # hamilton -> JPL
 
 
 class Isometry3d(object):
     """
     3d rigid transform.
     """
+
     def __init__(self, R, t):
         self.R = R
         self.t = t

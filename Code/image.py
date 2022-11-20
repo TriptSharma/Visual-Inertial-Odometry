@@ -6,23 +6,24 @@ from itertools import chain, compress
 from collections import defaultdict, namedtuple
 
 
-
 class FeatureMetaData(object):
     """
     Contain necessary information of a feature for easy access.
     """
+
     def __init__(self):
-        self.id = None           # int
-        self.response = None     # float
-        self.lifetime = None     # int
-        self.cam0_point = None   # vec2
-        self.cam1_point = None   # vec2
+        self.id = None  # int
+        self.response = None  # float
+        self.lifetime = None  # int
+        self.cam0_point = None  # vec2
+        self.cam1_point = None  # vec2
 
 
 class FeatureMeasurement(object):
     """
     Stereo measurement of a feature.
     """
+
     def __init__(self):
         self.id = None
         self.u0 = None
@@ -31,11 +32,11 @@ class FeatureMeasurement(object):
         self.v1 = None
 
 
-
 class ImageProcessor(object):
     """
     Detect and track features in image sequences.
     """
+
     def __init__(self, config):
         self.config = config
 
@@ -72,15 +73,15 @@ class ImageProcessor(object):
 
         # load config
         # Camera calibration parameters
-        self.cam0_resolution = config.cam0_resolution   # vec2
-        self.cam0_intrinsics = config.cam0_intrinsics   # vec4
-        self.cam0_distortion_model = config.cam0_distortion_model     # string
-        self.cam0_distortion_coeffs = config.cam0_distortion_coeffs   # vec4
+        self.cam0_resolution = config.cam0_resolution  # vec2
+        self.cam0_intrinsics = config.cam0_intrinsics  # vec4
+        self.cam0_distortion_model = config.cam0_distortion_model  # string
+        self.cam0_distortion_coeffs = config.cam0_distortion_coeffs  # vec4
 
-        self.cam1_resolution = config.cam1_resolution   # vec2
-        self.cam1_intrinsics = config.cam1_intrinsics   # vec4
-        self.cam1_distortion_model = config.cam1_distortion_model     # string
-        self.cam1_distortion_coeffs = config.cam1_distortion_coeffs   # vec4
+        self.cam1_resolution = config.cam1_resolution  # vec2
+        self.cam1_intrinsics = config.cam1_intrinsics  # vec4
+        self.cam1_distortion_model = config.cam1_distortion_model  # string
+        self.cam1_distortion_coeffs = config.cam1_distortion_coeffs  # vec4
 
         # Take a vector from cam0 frame to the IMU frame.
         self.T_cam0_imu = np.linalg.inv(config.T_imu_cam0)
@@ -197,7 +198,7 @@ class ImageProcessor(object):
 
             row = int(cam0_point[1] / grid_height)
             col = int(cam0_point[0] / grid_width)
-            code = row*self.config.grid_col + col
+            code = row * self.config.grid_col + col
 
             new_feature = FeatureMetaData()
             new_feature.response = response
@@ -208,8 +209,8 @@ class ImageProcessor(object):
         # Sort the new features in each grid based on its response.
         # And collect new features within each grid with high response.
         for i, new_features in enumerate(grid_new_features):
-            for feature in sorted(new_features, key=lambda x:x.response, 
-                reverse=True)[:self.config.grid_min_feature_num]:
+            for feature in sorted(new_features, key=lambda x: x.response,
+                                  reverse=True)[:self.config.grid_min_feature_num]:
                 self.curr_features[i].append(feature)
                 self.curr_features[i][-1].id = self.next_feature_id
                 self.curr_features[i][-1].lifetime = 1
@@ -252,16 +253,16 @@ class ImageProcessor(object):
 
         curr_cam0_points, track_inliers, _ = cv2.calcOpticalFlowPyrLK(
             self.prev_cam0_pyramid, self.curr_cam0_pyramid,
-            prev_cam0_points.astype(np.float32), 
-            curr_cam0_points.astype(np.float32), 
+            prev_cam0_points.astype(np.float32),
+            curr_cam0_points.astype(np.float32),
             **self.config.lk_params)
-            
+
         # Mark those tracked points out of the image region as untracked.
         for i, point in enumerate(curr_cam0_points):
             if not track_inliers[i]:
                 continue
-            if (point[0] < 0 or point[0] > img.shape[1]-1 or 
-                point[1] < 0 or point[1] > img.shape[0]-1):
+            if (point[0] < 0 or point[0] > img.shape[1] - 1 or
+                    point[1] < 0 or point[1] > img.shape[0] - 1):
                 track_inliers[i] = 0
 
         # Collect the tracked points.
@@ -325,7 +326,7 @@ class ImageProcessor(object):
         after_ransac = 0
         for i in range(len(cam0_ransac_inliers)):
             if not (cam0_ransac_inliers[i] and cam1_ransac_inliers[i]):
-                continue 
+                continue
             row = int(curr_matched_cam0_points[i][1] / grid_height)
             col = int(curr_matched_cam0_points[i][0] / grid_width)
             code = row * self.config.grid_col + col
@@ -345,7 +346,6 @@ class ImageProcessor(object):
         # prev_feature_num = sum([len(x) for x in self.prev_features])
         # curr_feature_num = sum([len(x) for x in self.curr_features])
 
-
     def add_new_features(self):
         """
         Detect new features on the image to ensure that the features are 
@@ -359,7 +359,7 @@ class ImageProcessor(object):
 
         for feature in chain.from_iterable(self.curr_features):
             x, y = map(int, feature.cam0_point)
-            mask[y-3:y+4, x-3:x+4] = 0
+            mask[y - 3:y + 4, x - 3:x + 4] = 0
 
         # Detect new features.
         new_features = self.detector.detect(curr_img, mask=mask)
@@ -376,8 +376,8 @@ class ImageProcessor(object):
         new_features = []
         for features in new_feature_sieve:
             if len(features) > self.config.grid_max_feature_num:
-                features = sorted(features, key=lambda x:x.response, 
-                    reverse=True)[:self.config.grid_max_feature_num]
+                features = sorted(features, key=lambda x: x.response,
+                                  reverse=True)[:self.config.grid_max_feature_num]
             new_features.append(features)
         new_features = list(chain.from_iterable(new_features))
 
@@ -403,7 +403,7 @@ class ImageProcessor(object):
 
             row = int(cam0_point[1] / grid_height)
             col = int(cam0_point[0] / grid_width)
-            code = row*self.config.grid_col + col
+            code = row * self.config.grid_col + col
 
             new_feature = FeatureMetaData()
             new_feature.response = response
@@ -414,8 +414,8 @@ class ImageProcessor(object):
         # Sort the new features in each grid based on its response.
         # And collect new features within each grid with high response.
         for i, new_features in enumerate(grid_new_features):
-            for feature in sorted(new_features, key=lambda x:x.response, 
-                reverse=True)[:self.config.grid_min_feature_num]:
+            for feature in sorted(new_features, key=lambda x: x.response,
+                                  reverse=True)[:self.config.grid_min_feature_num]:
                 self.curr_features[i].append(feature)
                 self.curr_features[i][-1].id = self.next_feature_id
                 self.curr_features[i][-1].lifetime = 1
@@ -432,8 +432,8 @@ class ImageProcessor(object):
             # not exceed the upper bound.
             if len(features) <= self.config.grid_max_feature_num:
                 continue
-            self.curr_features[i] = sorted(features, key=lambda x:x.lifetime, 
-                reverse=True)[:self.config.grid_max_feature_num]
+            self.curr_features[i] = sorted(features, key=lambda x: x.lifetime,
+                                           reverse=True)[:self.config.grid_max_feature_num]
 
     def publish(self):
         """
@@ -727,7 +727,7 @@ class ImageProcessor(object):
         # Size of each grid.
         """
         grid_height = int(np.ceil(img.shape[0] / self.config.grid_row))
-        grid_width  = int(np.ceil(img.shape[1] / self.config.grid_col))
+        grid_width = int(np.ceil(img.shape[1] / self.config.grid_col))
         return grid_height, grid_width
 
     def predict_feature_tracking(self, input_pts, R_p_c, intrinsics):
@@ -795,7 +795,7 @@ class ImageProcessor(object):
             cam0_points, cam1_points, **self.config.lk_params)
 
         cam0_points_, _, _ = cv2.calcOpticalFlowPyrLK(
-            self.curr_cam1_pyramid, self.curr_cam0_pyramid, 
+            self.curr_cam1_pyramid, self.curr_cam0_pyramid,
             cam1_points, cam0_points.copy(), **self.config.lk_params)
         err = np.linalg.norm(cam0_points - cam0_points_, axis=1)
 
@@ -803,9 +803,7 @@ class ImageProcessor(object):
         #     cam1_points, self.cam1_intrinsics,
         #     self.cam1_distortion_model, self.cam1_distortion_coeffs, R_cam0_cam1)
         disparity = np.abs(cam1_points_copy[:, 1] - cam1_points[:, 1])
-        
 
-        
         inlier_markers = np.logical_and.reduce(
             [inlier_markers.reshape(-1), err < 3, disparity < 20])
 
@@ -814,8 +812,8 @@ class ImageProcessor(object):
         for i, point in enumerate(cam1_points):
             if not inlier_markers[i]:
                 continue
-            if (point[0] < 0 or point[0] > img.shape[1]-1 or 
-                point[1] < 0 or point[1] > img.shape[0]-1):
+            if (point[0] < 0 or point[0] > img.shape[1] - 1 or
+                    point[1] < 0 or point[1] > img.shape[0] - 1):
                 inlier_markers[i] = 0
 
         # Compute the relative rotation between the cam0 frame and cam1 frame.
@@ -832,8 +830,8 @@ class ImageProcessor(object):
             self.cam1_distortion_model, self.cam1_distortion_coeffs)
 
         norm_pixel_unit = 4.0 / (
-            self.cam0_intrinsics[0] + self.cam0_intrinsics[1] +
-            self.cam1_intrinsics[0] + self.cam1_intrinsics[1])
+                self.cam0_intrinsics[0] + self.cam0_intrinsics[1] +
+                self.cam1_intrinsics[0] + self.cam1_intrinsics[1])
 
         for i in range(len(cam0_points_undistorted)):
             if not inlier_markers[i]:
@@ -849,9 +847,9 @@ class ImageProcessor(object):
 
         return cam1_points, inlier_markers
 
-    def undistort_points(self, pts_in, intrinsics, distortion_model, 
-        distortion_coeffs, rectification_matrix=np.identity(3),
-        new_intrinsics=np.array([1, 1, 0, 0])):
+    def undistort_points(self, pts_in, intrinsics, distortion_model,
+                         distortion_coeffs, rectification_matrix=np.identity(3),
+                         new_intrinsics=np.array([1, 1, 0, 0])):
         """
         Arguments:
             pts_in: points to be undistorted.
@@ -866,7 +864,7 @@ class ImageProcessor(object):
         """
         if len(pts_in) == 0:
             return []
-        
+
         pts_in = np.reshape(pts_in, (-1, 1, 2))
         K = np.array([
             [intrinsics[0], 0.0, intrinsics[2]],
@@ -879,14 +877,14 @@ class ImageProcessor(object):
 
         if distortion_model == 'equidistant':
             pts_out = cv2.fisheye.undistortPoints(pts_in, K, distortion_coeffs,
-                rectification_matrix, K_new)
-        else:   # default: 'radtan'
+                                                  rectification_matrix, K_new)
+        else:  # default: 'radtan'
             pts_out = cv2.undistortPoints(pts_in, K, distortion_coeffs, None,
-                rectification_matrix, K_new)
+                                          rectification_matrix, K_new)
         return pts_out.reshape((-1, 2))
 
-    def distort_points(self, pts_in, intrinsics, distortion_model, 
-            distortion_coeffs):
+    def distort_points(self, pts_in, intrinsics, distortion_model,
+                       distortion_coeffs):
         """
         Arguments:
             pts_in: points to be distorted.
@@ -907,10 +905,10 @@ class ImageProcessor(object):
 
         if distortion_model == 'equidistant':
             pts_out = cv2.fisheye.distortPoints(pts_in, K, distortion_coeffs)
-        else:   # default: 'radtan'
+        else:  # default: 'radtan'
             homogenous_pts = cv2.convertPointsToHomogeneous(pts_in)
-            pts_out, _ = cv2.projectPoints(homogenous_pts, 
-                np.zeros(3), np.zeros(3), K, distortion_coeffs)
+            pts_out, _ = cv2.projectPoints(homogenous_pts,
+                                           np.zeros(3), np.zeros(3), K, distortion_coeffs)
         return pts_out.reshape((-1, 2))
 
     def draw_features_stereo(self):
@@ -937,15 +935,15 @@ def skew(vec):
         [z, 0, -x],
         [-y, x, 0]])
 
+
 def select(data, selectors):
     return [d for d, s in zip(data, selectors) if s]
-
 
 
 if __name__ == '__main__':
     from queue import Queue
     from threading import Thread
-    
+
     from config import ConfigEuRoC
     from dataset import EuRoCDataset, DataPublisher
 
@@ -955,11 +953,10 @@ if __name__ == '__main__':
     config = ConfigEuRoC()
     image_processor = ImageProcessor(config)
 
-
     path = 'path/to/your/EuRoC_MAV_dataset/MH_01_easy'
     dataset = EuRoCDataset(path)
     dataset.set_starttime(offset=0.)
-    
+
     duration = 3.
     ratio = 0.5
     imu_publisher = DataPublisher(
@@ -979,6 +976,8 @@ if __name__ == '__main__':
                 return
             print(msg.timestamp, 'imu')
             image_processor.imu_callback(msg)
+
+
     t2 = Thread(target=process_imu, args=(imu_queue,))
     t2.start()
 

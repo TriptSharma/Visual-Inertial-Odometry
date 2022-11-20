@@ -6,7 +6,6 @@ import cv2
 from multiprocessing import Queue, Process
 
 
-
 class Viewer(object):
     def __init__(self):
         self.image_queue = Queue()
@@ -26,17 +25,16 @@ class Viewer(object):
         elif image.ndim == 2:
             image = np.repeat(image[..., np.newaxis], 3, axis=2)
         self.image_queue.put(image)
-            
 
     def view(self):
         pangolin.CreateWindowAndBind('Viewer', 1024, 768)
         gl.glEnable(gl.GL_DEPTH_TEST)
         gl.glEnable(gl.GL_BLEND)
-        gl.glBlendFunc (gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 
         viewpoint_x = 0
-        viewpoint_y = -7  
-        viewpoint_z = -18 
+        viewpoint_y = -7
+        viewpoint_z = -18
         viewpoint_f = 1000
 
         proj = pangolin.ProjectionMatrix(
@@ -65,7 +63,6 @@ class Viewer(object):
         axis = pangolin.Renderable()
         axis.Add(pangolin.Axis())
 
-
         trajectory = DynamicArray()
         camera = None
         image = None
@@ -88,7 +85,6 @@ class Viewer(object):
             gl.glClearColor(1.0, 1.0, 1.0, 1.0)
             dcam.Activate(scam)
 
-
             # draw axis
             axis.Render()
 
@@ -110,10 +106,8 @@ class Viewer(object):
                 dimg.Activate()
                 gl.glColor3f(1.0, 1.0, 1.0)
                 texture.RenderToViewport()
-                
+
             pangolin.FinishFrame()
-
-
 
 
 class DynamicArray(object):
@@ -131,7 +125,7 @@ class DynamicArray(object):
 
     def append(self, x):
         self.extend([x])
-    
+
     def extend(self, xs):
         if len(xs) == 0:
             return
@@ -139,13 +133,13 @@ class DynamicArray(object):
 
         if self.ind + len(xs) >= len(self.data):
             self.data.resize(
-                (2 * len(self.data), *self.shape) , refcheck=False)
+                (2 * len(self.data), *self.shape), refcheck=False)
 
         if isinstance(xs, np.ndarray):
-            self.data[self.ind:self.ind+len(xs)] = xs
+            self.data[self.ind:self.ind + len(xs)] = xs
         else:
             for i, x in enumerate(xs):
-                self.data[self.ind+i] = x
+                self.data[self.ind + i] = x
             self.ind += len(xs)
 
     def array(self):
@@ -161,8 +155,6 @@ class DynamicArray(object):
     def __iter__(self):
         for x in self.data[:self.ind]:
             yield x
-
-
 
 
 if __name__ == '__main__':

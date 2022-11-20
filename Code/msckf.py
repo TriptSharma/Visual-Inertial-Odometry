@@ -235,6 +235,7 @@ class MSCKF(object):
         Initialize the IMU bias and initial orientation based on the 
         first few IMU readings.
         """
+        # TODO: initialize_gravity_and_bias
         # Initialize the gyro_bias given the current angular and linear velocity
         ...
 
@@ -257,6 +258,7 @@ class MSCKF(object):
         """
         Process the imu message given the time bound
         """
+        # TODO: batch_imu_processing
         # Process the imu messages in the imu_msg_buffer 
         # Execute process model.
         # Update the state info
@@ -279,6 +281,7 @@ class MSCKF(object):
         """
         Section III.A: The dynamics of the error IMU state following equation (2) in the "MSCKF" paper.
         """
+        # TODO: process_model
         # Get the error IMU state
         ...
 
@@ -308,7 +311,8 @@ class MSCKF(object):
         """
         IMPLEMENT THIS!!!!!
         """
-        """Propogate the state using 4th order Runge-Kutta for equstion (1) in "MSCKF" paper"""
+        """Propagate the state using 4th order Runge-Kutta for equations (1) in "MSCKF" paper"""
+        # TODO: predict_new_state
         # compute norm of gyro
         ...
 
@@ -347,6 +351,7 @@ class MSCKF(object):
         """
         Compute the state covariance matrix in equation (3) in the "MSCKF" paper.
         """
+        # TODO: state_augmentation
         # Get the imu_state, rotation from imu to cam0, and translation from cam0 to imu
         ...
 
@@ -371,6 +376,7 @@ class MSCKF(object):
         """
         IMPLEMENT THIS!!!!!
         """
+        # TODO: add_feature_observations
         # get the current imu state id and number of current features
         ...
 
@@ -501,6 +507,7 @@ class MSCKF(object):
         """
         Section III.B: by stacking multiple observations, we can compute the residuals in equation (6) in "MSCKF" paper 
         """
+        # TODO: measurement_update
         # Check if H and r are empty
         ...
 

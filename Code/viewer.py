@@ -1,5 +1,5 @@
 import numpy as np
-import OpenGL.GL as gl
+import PyOpenGL.GL as gl
 import pangolin
 import cv2
 
@@ -161,5 +161,5 @@ if __name__ == '__main__':
     import g2o
     import time
 
-    viewer = Viewer()
+    # viewer = Viewer()
     viewer.update_pose(g2o.Isometry3d())

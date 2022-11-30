@@ -68,16 +68,17 @@ if __name__ == '__main__':
     import argparse
 
     from dataset import EuRoCDataset, DataPublisher
-    from viewer import Viewer
+    # from viewer import Viewer
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=str, default='path/to/your/EuRoC_MAV_dataset/MH_01_easy',
+    parser.add_argument('--path', type=str, default='../Data/',
                         help='Path of EuRoC MAV dataset.')
     parser.add_argument('--view', action='store_true', help='Show trajectory.')
     args = parser.parse_args()
 
     if args.view:
-        viewer = Viewer()
+        pass
+        # viewer = Viewer()
     else:
         viewer = None
 

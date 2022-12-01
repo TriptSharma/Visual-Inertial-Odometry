@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # from viewer import Viewer
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=str, default='../Data/',
+    parser.add_argument('--path', type=str, default='Data/MH_01_easy/',
                         help='Path of EuRoC MAV dataset.')
     parser.add_argument('--view', action='store_true', help='Show trajectory.')
     args = parser.parse_args()

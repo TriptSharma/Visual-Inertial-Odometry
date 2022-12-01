@@ -367,7 +367,7 @@ class MSCKF(object):
         norm_gyro = np.linalg.norm(gyro)
 
         # Get the Omega matrix, the equation above equation (2) in "MSCKF" paper
-        omega_mat = np.vstack((np.hstack((-skew(gyro), gyro)),
+        omega_mat = np.vstack((np.hstack((-skew(gyro), np.reshape(gyro,(-1,1)))),
                                np.hstack((-gyro.T, [0]))))
 
         # Get the orientation, velocity, position
@@ -464,7 +464,7 @@ class MSCKF(object):
 
         # Resize the state covariance matrix.
         rows, cols = self.state_server.state_cov.shape[:2]
-        resized_state_cov = self.state_server.state_cov.resize((rows + 6, cols + 6))
+        resized_state_cov = np.resize(self.state_server.state_cov, (rows + 6, cols + 6))
         self.state_server.state_cov = resized_state_cov
 
         # Fill in the augmented state covariance.
@@ -496,7 +496,7 @@ class MSCKF(object):
         tracked_features = 0
 
         # add all features in the feature_msg to self.map_server
-        for msg in feature_msg:
+        for msg in feature_msg.features:
             # Check if we have a new feature
             msg_id = msg.id
             if msg_id not in self.map_server.keys():
@@ -508,7 +508,8 @@ class MSCKF(object):
             self.map_server[msg_id].observations[imu_state_id] = (msg.u0, msg.v0, msg.u1, msg.v1)
 
         # update the tracking rate
-        self.tracking_rate = tracked_features / state_features_N
+        # eps = 0.000001
+        self.tracking_rate = tracked_features / (state_features_N)# +eps)
 
     def measurement_jacobian(self, cam_state_id, feature_id):
         """

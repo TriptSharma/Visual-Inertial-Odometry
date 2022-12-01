@@ -8,6 +8,7 @@ from msckf import MSCKF
 
 class VIO(object):
     def __init__(self, config, img_queue, imu_queue, viewer=None):
+        self.pub_list = []
         self.config = config
         self.viewer = viewer
 
@@ -58,6 +59,7 @@ class VIO(object):
                 return
             print('feature_msg', feature_msg.timestamp)
             result = self.msckf.feature_callback(feature_msg)
+            self.pub_list.append(result)
 
             if result is not None and self.viewer is not None:
                 self.viewer.update_pose(result.cam0_pose)

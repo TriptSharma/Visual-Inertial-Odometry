@@ -247,11 +247,11 @@ class MSCKF(object):
         # Normalize the gravity and save to IMUState
         gravity_norm = np.linalg.norm(imu_gravity)
         gravity = np.array([0, 0, -gravity_norm])
-        self.state_server.imu_state.gravity = gravity
+        IMUState.gravity = gravity
 
         # Initialize the initial orientation, so that the estimation
         # is consistent with the inertial frame.
-        self.state_server.imu_state.orientation = from_two_vectors(imu_gravity, -gravity)
+        self.state_server.imu_state.orientation = from_two_vectors(-gravity, imu_gravity)
 
     # Filter related functions
     # (batch_imu_processing, process_model, predict_new_state)
@@ -288,8 +288,9 @@ class MSCKF(object):
         self.state_server.imu_state.next_id += 1
 
         # Remove all used IMU msgs.
-        for i in range(msg_count):
-            self.imu_msg_buffer.pop(0)
+        # for i in range(msg_count):
+        #     self.imu_msg_buffer.pop(0)
+        self.imu_msg_buffer = self.imu_msg_buffer[msg_count:]
 
     def process_model(self, time, m_gyro, m_acc):
         """

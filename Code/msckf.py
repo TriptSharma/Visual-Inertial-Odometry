@@ -193,33 +193,33 @@ class MSCKF(object):
         # that are received before the image msg.
         self.batch_imu_processing(feature_msg.timestamp)
 
-        print('---batch_imu_processing    ', time.time() - t)
+        # print('---batch_imu_processing    ', time.time() - t)
         t = time.time()
 
         # Augment the state vector.
         self.state_augmentation(feature_msg.timestamp)
 
-        print('---state_augmentation      ', time.time() - t)
+        # print('---state_augmentation      ', time.time() - t)
         t = time.time()
 
         # Add new observations for existing features or new features 
         # in the map server.
         self.add_feature_observations(feature_msg)
 
-        print('---add_feature_observations', time.time() - t)
+        # print('---add_feature_observations', time.time() - t)
         t = time.time()
 
         # Perform measurement update if necessary.
         # And prune features and camera states.
         self.remove_lost_features()
 
-        print('---remove_lost_features    ', time.time() - t)
+        # print('---remove_lost_features    ', time.time() - t)
         t = time.time()
 
         self.prune_cam_state_buffer()
 
-        print('---prune_cam_state_buffer  ', time.time() - t)
-        print('---msckf elapsed:          ', time.time() - start, f'({feature_msg.timestamp})')
+        # print('---prune_cam_state_buffer  ', time.time() - t)
+        # print('---msckf elapsed:          ', time.time() - start, f'({feature_msg.timestamp})')
 
         try:
             # Publish the odometry.
@@ -271,9 +271,15 @@ class MSCKF(object):
         msg_count = 0
 
         for msg in self.imu_msg_buffer:
-            if msg.timestamp < time_bound:
-                self.process_model(msg.timestamp, msg.angular_velocity, msg.linear_acceleration)
+            if msg.timestamp < self.state_server.imu_state.timestamp:
                 msg_count += 1
+                continue
+            if msg.timestamp > time_bound:
+                break
+
+            self.process_model(msg.timestamp, msg.angular_velocity, msg.linear_acceleration)
+            msg_count += 1
+            self.state_server.imu_state.timestamp = msg.timestamp
 
         # Set the current imu id to be the IMUState.next_id
         self.state_server.imu_state.id = self.state_server.imu_state.next_id
@@ -313,7 +319,7 @@ class MSCKF(object):
         G[6:9, 6:9] = -to_rotation(q_hat_g_I).T
         G[12:15, -3:] = np.eye(3)
 
-        # Approximate matrix exponential to the 3rd order, which can be 
+        # Approximate matrix exponential to the 3rd order, which can be
         # considered to be accurate enough assuming dt is within 0.01s.
         F_dt = F * dt
         F_dt_2 = F_dt @ F_dt
@@ -327,18 +333,19 @@ class MSCKF(object):
         null_R = to_rotation(self.state_server.imu_state.orientation_null)
         matrix_exp_3[:3, :3] = to_rotation(self.state_server.imu_state.orientation) @ null_R.T
 
-        gravity_R = null_R @ self.state_server.imu_state.gravity
-        gravity_R2 = gravity_R / (gravity_R @ gravity_R)
+        r_grav = null_R @ self.state_server.imu_state.gravity
+        r_grav2 = r_grav / (r_grav @ r_grav)
 
         A = matrix_exp_3[6:9, :3]
         w = skew(self.state_server.imu_state.velocity_null - self.state_server.imu_state.velocity)
         w = w @ self.state_server.imu_state.gravity
+        matrix_exp_3[6:9, :3] = A - (A @ r_grav - w)[:, None] * r_grav2
 
         A2 = matrix_exp_3[12:15, :3]
         w2 = skew(dt * self.state_server.imu_state.velocity_null +
                   self.state_server.imu_state.position_null - self.state_server.imu_state.position)
         w2 = w2 @ self.state_server.imu_state.gravity
-        matrix_exp_3[12:15, :3] = A2 - (A2 @ gravity_R - w2)[:, None] * gravity_R2
+        matrix_exp_3[12:15, :3] = A2 - (A2 @ r_grav - w2)[:, None] * r_grav2
 
         # Propagate the state covariance matrix.
         Q = matrix_exp_3 @ G @ self.state_server.continuous_noise_cov @ G.T @ matrix_exp_3.T * dt
@@ -367,8 +374,9 @@ class MSCKF(object):
         norm_gyro = np.linalg.norm(gyro)
 
         # Get the Omega matrix, the equation above equation (2) in "MSCKF" paper
-        omega_mat = np.vstack((np.hstack((-skew(gyro), np.reshape(gyro,(-1,1)))),
-                               np.hstack((-gyro.T, [0]))))
+        omega_mat = np.vstack((np.hstack((-skew(gyro), gyro[:, None])),
+                               np.hstack((-gyro, [0]))))
+        # TODO: should it be -gyro.T or just -gyro?
 
         # Get the orientation, velocity, position
         orientation = self.state_server.imu_state.orientation
@@ -393,7 +401,7 @@ class MSCKF(object):
         dq_dt_RT = to_rotation(dq_dt).T
         dq_dt2_RT = to_rotation(dq_dt2).T
 
-        # Apply 4th order Runge-Kutta 
+        # Apply 4th order Runge-Kutta
         # k1 = f(tn, yn)
         k1_v_d = to_rotation(orientation).T @ acc + g_G
         k1_p_d = velocity
@@ -459,31 +467,33 @@ class MSCKF(object):
         J_I[:3, 15:18] = np.eye(3)
         J_I[3:6, :3] = skew(R_world_imu.T @ t_cam0_imu)  # -to_rotation(q_hat_G_I).T @ skew(p_hat_C_I)
         J_I[3:6, 12:15] = np.eye(3)
-        # TODO: use Identity matrix or R_world_imu.T??
-        J_I[3:6, 18:] = R_world_imu.T  # np.eye(3)
+        # TODO: use Identity matrix or R_world_imu.T?
+        J_I[3:6, 18:] = np.eye(3)  # R_world_imu.T
 
         # Resize the state covariance matrix.
         rows, cols = self.state_server.state_cov.shape[:2]
-        resized_state_cov = np.resize(self.state_server.state_cov, (rows + 6, cols + 6))
+        resized_state_cov = np.zeros((rows+6, cols+6))
+        resized_state_cov[:-6, :-6] = self.state_server.state_cov
         self.state_server.state_cov = resized_state_cov
 
         # Fill in the augmented state covariance.
-        II_cov = self.state_server.state_cov[:21, :21]
-        IC_cov = self.state_server.state_cov[:21, 21:cols-21]
+        II_cov = self.state_server.state_cov[:21, :cols]
+        # IC_cov = self.state_server.state_cov[:21, 21:cols-21]
+        IC_cov = self.state_server.state_cov[:21, :21]
 
         # N = self.state_server.state_cov.shape[0] // 6
         # J = np.hstack([J_I, np.zeros((6, 6 * N))])
 
-        self.state_server.state_cov[rows:, :cols] = np.hstack((J_I @ II_cov, J_I @ IC_cov))
-        self.state_server.state_cov[:rows, cols:cols+6] = self.state_server.state_cov[rows:, :cols].T
-        CC_cov = J_I @ II_cov @ J_I.T
+        self.state_server.state_cov[rows:, :cols] = J_I @ II_cov
+        # self.state_server.state_cov[rows:, cols:] = J_I @ IC_cov
+        self.state_server.state_cov[:rows, cols:] = self.state_server.state_cov[rows:, :cols].T
+        CC_cov = J_I @ IC_cov @ J_I.T
         self.state_server.state_cov[-6:, -6:] = CC_cov
 
         # Fix the covariance to be symmetric
         state_cov = self.state_server.state_cov
         sym_mat = (state_cov + state_cov.T) / 2.0
         self.state_server.state_cov = sym_mat
-
 
     def add_feature_observations(self, feature_msg):
         """
@@ -500,16 +510,16 @@ class MSCKF(object):
             # Check if we have a new feature
             msg_id = msg.id
             if msg_id not in self.map_server.keys():
-                self.map_server[msg_id] = Feature(msg_id)
+                self.map_server[msg_id] = Feature(msg_id, self.optimization_config)
             else:
                 # increment counter
                 tracked_features += 1
             # Update observations of feature
-            self.map_server[msg_id].observations[imu_state_id] = (msg.u0, msg.v0, msg.u1, msg.v1)
+            self.map_server[msg_id].observations[imu_state_id] = np.array([msg.u0, msg.v0, msg.u1, msg.v1])
 
         # update the tracking rate
-        # eps = 0.000001
-        self.tracking_rate = tracked_features / (state_features_N)# +eps)
+        eps = 0.00001
+        self.tracking_rate = tracked_features / (state_features_N + eps)
 
     def measurement_jacobian(self, cam_state_id, feature_id):
         """
@@ -641,7 +651,7 @@ class MSCKF(object):
         H_reduced = H
         r_reduced = r
         if H.shape[0] > H.shape[1]:
-            Q, R = scipy.linalg.qr(H, mode='reduced')
+            Q, R = np.linalg.qr(H, mode='reduced')
             H_reduced = R
             r_reduced = Q.T @ r
 
@@ -674,8 +684,8 @@ class MSCKF(object):
         # Update the camera states.
         cam_states = self.state_server.cam_states
         for i, cam_state_k in enumerate(cam_states.keys()):
-            idx = 21+i*6  # index starts after IMU, in increments of 6 for i-th cam
-            x_cam_change = x_change[idx:idx+6]
+            idx = 21 + i * 6  # index starts after IMU, in increments of 6 for i-th cam
+            x_cam_change = x_change[idx:idx + 6]
             cam_dq = small_angle_quaternion(x_cam_change[:3])
             cam_states[cam_state_k].orientation = quaternion_multiplication(cam_dq, cam_states[cam_state_k].orientation)
             cam_states[cam_state_k].position += x_cam_change[3:]
